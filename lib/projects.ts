@@ -1,3 +1,4 @@
+// lib/projects.ts
 import { db } from "./firebase";
 import {
   addDoc,
@@ -11,17 +12,16 @@ import type { ProjectDoc } from "./types";
 
 const PROJECTS = "projects";
 
-const FAKE_USER_ID = "demo-user"; // replace with auth uid later
-
 export async function createProject(input: {
+  ownerId: string;
   name: string;
   description?: string;
 }): Promise<string> {
   const docRef = await addDoc(collection(db, PROJECTS), {
+    ownerId: input.ownerId,
     name: input.name,
     description: input.description ?? "",
     status: "ACTIVE",
-    ownerId: FAKE_USER_ID,
     createdAt: Date.now(),
     updatedAt: Date.now()
   });
@@ -29,10 +29,10 @@ export async function createProject(input: {
   return docRef.id;
 }
 
-export async function listProjects(): Promise<ProjectDoc[]> {
+export async function listProjects(ownerId: string): Promise<ProjectDoc[]> {
   const q = query(
     collection(db, PROJECTS),
-    where("ownerId", "==", FAKE_USER_ID),
+    where("ownerId", "==", ownerId),
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);
