@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { listTasksForUser, deleteTask } from "@/lib/tasks";
-import type { TaskDoc, TaskStatus } from "@/lib/types";
+import { getProjectsByIds } from "@/lib/projects";
+import { getMilestonesByIds } from "@/lib/milestones";
+import type {
+  TaskDoc,
+  TaskStatus,
+  ProjectDoc,
+  MilestoneDoc,
+} from "@/lib/types";
 
 const STATUS_COLUMNS: { key: TaskStatus; label: string }[] = [
   { key: "BACKLOG", label: "Backlog" },
@@ -41,16 +48,52 @@ function renderDueLabel(timestamp: number) {
 export default function MyTasksPage() {
   const { user, loading: authLoading } = useAuth();
   const [tasks, setTasks] = useState<TaskDoc[]>([]);
+  const [projects, setProjects] = useState<Record<string, ProjectDoc>>({});
+  const [milestones, setMilestones] =
+    useState<Record<string, MilestoneDoc>>({});
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!user) return;
     setLoading(true);
 
-    const userTasks = await listTasksForUser(user.uid);
-    setTasks(userTasks);
+    try {
+      const userTasks = await listTasksForUser(user.uid);
+      setTasks(userTasks);
 
-    setLoading(false);
+      const projectIds = Array.from(
+        new Set(userTasks.map((t) => t.projectId).filter(Boolean))
+      );
+      const milestoneIds = Array.from(
+        new Set(userTasks.map((t) => t.milestoneId).filter(Boolean))
+      );
+
+      let projectMap: Record<string, ProjectDoc> = {};
+      let milestoneMap: Record<string, MilestoneDoc> = {};
+
+      // These are wrapped in try/catch so a rules issue on one doc
+      // doesn't break the whole My Tasks page.
+      try {
+        projectMap =
+          projectIds.length > 0 ? await getProjectsByIds(projectIds) : {};
+      } catch (e) {
+        console.warn("Could not load some projects:", e);
+      }
+
+      try {
+        milestoneMap =
+          milestoneIds.length > 0
+            ? await getMilestonesByIds(milestoneIds)
+            : {};
+      } catch (e) {
+        console.warn("Could not load some milestones:", e);
+      }
+
+      setProjects(projectMap);
+      setMilestones(milestoneMap);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -129,42 +172,46 @@ export default function MyTasksPage() {
                 </span>
               </div>
               <div className="space-y-2">
-                {grouped[col.key].map((task) => (
-                  <div
-                    key={task.id}
-                    className="rounded-lg bg-white px-3 py-2 text-sm shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <p className="font-medium">{task.title}</p>
+                {grouped[col.key].map((task) => {
+                  const project = projects[task.projectId];
+                  const milestone = milestones[task.milestoneId];
 
-                        {task.dueDate && (
-                          <p className="mt-1 text-xs">
-                            {renderDueLabel(task.dueDate)}
+                  return (
+                    <div
+                      key={task.id}
+                      className="rounded-lg bg-white px-3 py-2 text-sm shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="font-medium">{task.title}</p>
+
+                          {/* Project + milestone names */}
+                          <p className="mt-1 text-xs text-slate-600">
+                            {project ? project.name : "Project"} •{" "}
+                            {milestone ? milestone.name : "Milestone"}
                           </p>
-                        )}
 
-                        <p className="mt-1 text-xs text-slate-500">
-                          Priority: {task.priority}
-                        </p>
+                          {task.dueDate && (
+                            <p className="mt-1 text-xs">
+                              {renderDueLabel(task.dueDate)}
+                            </p>
+                          )}
 
-                        <p className="mt-1 text-xs text-slate-500">
-                          Project: {task.projectId}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Milestone: {task.milestoneId}
-                        </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Priority: {task.priority}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTask(task.id)}
+                          className="rounded border px-2 py-1 text-xs text-red-600"
+                        >
+                          Delete
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="rounded border px-2 py-1 text-xs text-red-600"
-                      >
-                        Delete
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {grouped[col.key].length === 0 && (
                   <p className="text-xs text-slate-500">No tasks</p>
                 )}

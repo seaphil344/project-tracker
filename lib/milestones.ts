@@ -10,6 +10,7 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  documentId,
 } from "firebase/firestore";
 import type { MilestoneDoc, MilestoneStatus } from "./types";
 
@@ -61,7 +62,7 @@ export async function updateMilestoneStatus(
   });
 }
 
-// ✅ NEW: generic milestone update
+// generic milestone update (name, description, status, dueDate)
 export async function updateMilestone(
   milestoneId: string,
   updates: Partial<
@@ -75,18 +76,47 @@ export async function updateMilestone(
   });
 }
 
-// ✅ NEW: delete a milestone (tasks get deleted in UI via deleteTasksForMilestone)
 export async function deleteMilestone(milestoneId: string): Promise<void> {
   const ref = doc(db, MILESTONES, milestoneId);
   await deleteDoc(ref);
 }
 
-// ✅ NEW: cascade delete all milestones under a project
+// delete all milestones under a project (used when deleting a project)
 export async function deleteMilestonesForProject(
-    projectId: string
-  ): Promise<void> {
-    const q = query(collection(db, MILESTONES), where("projectId", "==", projectId));
+  projectId: string
+): Promise<void> {
+  const q = query(collection(db, MILESTONES), where("projectId", "==", projectId));
+  const snap = await getDocs(q);
+  const deletions = snap.docs.map((docSnap) => deleteDoc(docSnap.ref));
+  await Promise.all(deletions);
+}
+
+// ✅ used by /my-tasks to resolve milestone names
+export async function getMilestonesByIds(
+  ids: string[]
+): Promise<Record<string, MilestoneDoc>> {
+  if (ids.length === 0) return {};
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 10) {
+    chunks.push(ids.slice(i, i + 10));
+  }
+
+  const results: Record<string, MilestoneDoc> = {};
+
+  for (const chunk of chunks) {
+    const q = query(
+      collection(db, MILESTONES),
+      where(documentId(), "in", chunk)
+    );
     const snap = await getDocs(q);
-    const deletions = snap.docs.map((docSnap) => deleteDoc(docSnap.ref));
-    await Promise.all(deletions);
+    snap.forEach((docSnap) => {
+      results[docSnap.id] = {
+        id: docSnap.id,
+        ...(docSnap.data() as Omit<MilestoneDoc, "id">),
+      };
+    });
+  }
+
+  return results;
 }

@@ -183,17 +183,11 @@ export default function MilestonePage() {
         <div>
           <h1 className="text-2xl font-semibold">{milestone.name}</h1>
           {milestone.description && (
-            <p className="text-sm text-slate-600">
-              {milestone.description}
-            </p>
+            <p className="text-sm text-slate-600">{milestone.description}</p>
           )}
         </div>
         <div className="w-full max-w-sm">
-          <TaskForm
-            projectId={projectId}
-            milestoneId={milestoneId}
-            onCreated={load}
-          />
+          <TaskForm projectId={projectId} milestoneId={milestoneId} onCreated={load} />
         </div>
       </header>
 
@@ -276,6 +270,12 @@ export default function MilestonePage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
                         <p className="font-medium">{task.title}</p>
+
+                        {task.description && task.description.trim() !== "" && (
+                          <p className="mt-1 text-xs text-slate-600">
+                            {task.description}
+                          </p>
+                        )}
 
                         {task.dueDate && (
                           <p className="mt-1 text-xs">
