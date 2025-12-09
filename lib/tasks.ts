@@ -101,5 +101,14 @@ export async function deleteTasksForMilestone(
   
     const deletions = snap.docs.map((docSnap) => deleteDoc(docSnap.ref));
     await Promise.all(deletions);
-  }
+}
   
+// ✅ NEW: cascade delete all tasks under a project
+export async function deleteTasksForProject(
+    projectId: string
+  ): Promise<void> {
+    const q = query(collection(db, TASKS), where("projectId", "==", projectId));
+    const snap = await getDocs(q);
+    const deletions = snap.docs.map((docSnap) => deleteDoc(docSnap.ref));
+    await Promise.all(deletions);
+}

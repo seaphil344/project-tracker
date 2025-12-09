@@ -80,3 +80,13 @@ export async function deleteMilestone(milestoneId: string): Promise<void> {
   const ref = doc(db, MILESTONES, milestoneId);
   await deleteDoc(ref);
 }
+
+// ✅ NEW: cascade delete all milestones under a project
+export async function deleteMilestonesForProject(
+    projectId: string
+  ): Promise<void> {
+    const q = query(collection(db, MILESTONES), where("projectId", "==", projectId));
+    const snap = await getDocs(q);
+    const deletions = snap.docs.map((docSnap) => deleteDoc(docSnap.ref));
+    await Promise.all(deletions);
+}

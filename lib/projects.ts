@@ -8,14 +8,15 @@ import {
   where,
   orderBy,
   doc,
-  getDoc,
-  documentId
+  updateDoc,
+  deleteDoc,
+  documentId,
 } from "firebase/firestore";
 import type { ProjectDoc } from "./types";
 
 const PROJECTS = "projects";
 
-// ✅ create a project owned by a given user
+// Create
 export async function createProject(input: {
   ownerId: string;
   name: string;
@@ -27,13 +28,13 @@ export async function createProject(input: {
     description: input.description ?? "",
     status: "ACTIVE",
     createdAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
   });
 
   return docRef.id;
 }
 
-// ✅ list projects for one owner, newest first
+// List for owner
 export async function listProjects(ownerId: string): Promise<ProjectDoc[]> {
   const q = query(
     collection(db, PROJECTS),
@@ -43,17 +44,16 @@ export async function listProjects(ownerId: string): Promise<ProjectDoc[]> {
   const snap = await getDocs(q);
   return snap.docs.map((docSnap) => ({
     id: docSnap.id,
-    ...(docSnap.data() as Omit<ProjectDoc, "id">)
+    ...(docSnap.data() as Omit<ProjectDoc, "id">),
   }));
 }
 
-// ✅ optional: used by /my-tasks page to resolve names
+// Optional: used by My Tasks (if you ever re-enable it)
 export async function getProjectsByIds(
   ids: string[]
 ): Promise<Record<string, ProjectDoc>> {
   if (ids.length === 0) return {};
 
-  // Firestore 'in' limit is 10 – chunk if needed
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 10) {
     chunks.push(ids.slice(i, i + 10));
@@ -70,10 +70,28 @@ export async function getProjectsByIds(
     snap.forEach((docSnap) => {
       results[docSnap.id] = {
         id: docSnap.id,
-        ...(docSnap.data() as Omit<ProjectDoc, "id">)
+        ...(docSnap.data() as Omit<ProjectDoc, "id">),
       };
     });
   }
 
   return results;
+}
+
+// ✅ NEW: update project (name/description/status)
+export async function updateProject(
+  projectId: string,
+  updates: Partial<Pick<ProjectDoc, "name" | "description" | "status">>
+): Promise<void> {
+  const ref = doc(db, PROJECTS, projectId);
+  await updateDoc(ref, {
+    ...updates,
+    updatedAt: Date.now(),
+  });
+}
+
+// ✅ NEW: delete project doc
+export async function deleteProject(projectId: string): Promise<void> {
+  const ref = doc(db, PROJECTS, projectId);
+  await deleteDoc(ref);
 }
