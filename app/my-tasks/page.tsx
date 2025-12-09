@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { listTasksForUser } from "@/lib/tasks";
+import { listTasksForUser, deleteTask } from "@/lib/tasks";
 import type { TaskDoc, TaskStatus } from "@/lib/types";
 
 const STATUS_COLUMNS: { key: TaskStatus; label: string }[] = [
@@ -58,6 +58,12 @@ export default function MyTasksPage() {
       void load();
     }
   }, [authLoading, user]);
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm("Delete this task? This cannot be undone.")) return;
+    await deleteTask(taskId);
+    await load();
+  };
 
   if (authLoading) {
     return <p className="text-sm text-slate-600">Checking auth…</p>;
@@ -128,22 +134,35 @@ export default function MyTasksPage() {
                     key={task.id}
                     className="rounded-lg bg-white px-3 py-2 text-sm shadow-sm"
                   >
-                    <p className="font-medium">{task.title}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <p className="font-medium">{task.title}</p>
 
-                    {task.dueDate && (
-                      <p className="mt-1 text-xs">{renderDueLabel(task.dueDate)}</p>
-                    )}
+                        {task.dueDate && (
+                          <p className="mt-1 text-xs">
+                            {renderDueLabel(task.dueDate)}
+                          </p>
+                        )}
 
-                    <p className="mt-1 text-xs text-slate-500">
-                      Priority: {task.priority}
-                    </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Priority: {task.priority}
+                        </p>
 
-                    <p className="mt-1 text-xs text-slate-500">
-                      Project: {task.projectId}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Milestone: {task.milestoneId}
-                    </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Project: {task.projectId}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Milestone: {task.milestoneId}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="rounded border px-2 py-1 text-xs text-red-600"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {grouped[col.key].length === 0 && (
