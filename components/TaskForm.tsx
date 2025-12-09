@@ -18,6 +18,7 @@ export default function TaskForm({ projectId, milestoneId, onCreated }: Props) {
 
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
+  const [dueDateInput, setDueDateInput] = useState(""); // "YYYY-MM-DD"
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,16 +29,24 @@ export default function TaskForm({ projectId, milestoneId, onCreated }: Props) {
     setSubmitting(true);
 
     try {
+      let dueDate: number | null = null;
+      if (dueDateInput) {
+        // Store as timestamp at local midnight of that day
+        const date = new Date(dueDateInput + "T00:00:00");
+        dueDate = date.getTime();
+      }
+
       await createTask(projectId, milestoneId, {
         title: title.trim(),
         priority,
         description: "",
-        dueDate: null,
-        assigneeId: user.uid,       // 👈 Assigned to current user
+        dueDate,
+        assigneeId: user.uid,
       });
 
       setTitle("");
       setPriority("MEDIUM");
+      setDueDateInput("");
       onCreated?.();
     } catch (err) {
       console.error("Error creating task:", err);
@@ -60,18 +69,28 @@ export default function TaskForm({ projectId, milestoneId, onCreated }: Props) {
         disabled={submitting}
       />
 
-      <select
-        className="rounded border px-2 py-1 text-sm"
-        value={priority}
-        onChange={(e) => setPriority(e.target.value as TaskPriority)}
-        disabled={submitting}
-      >
-        {PRIORITIES.map((p) => (
-          <option key={p} value={p}>
-            {p.charAt(0) + p.slice(1).toLowerCase()}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <select
+          className="w-full rounded border px-2 py-2 text-sm"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value as TaskPriority)}
+          disabled={submitting}
+        >
+          {PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {p.charAt(0) + p.slice(1).toLowerCase()}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="date"
+          className="w-full rounded border px-2 py-2 text-sm"
+          value={dueDateInput}
+          onChange={(e) => setDueDateInput(e.target.value)}
+          disabled={submitting}
+        />
+      </div>
 
       <button
         type="submit"

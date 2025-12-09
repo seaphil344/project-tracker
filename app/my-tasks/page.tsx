@@ -9,8 +9,34 @@ const STATUS_COLUMNS: { key: TaskStatus; label: string }[] = [
   { key: "BACKLOG", label: "Backlog" },
   { key: "IN_PROGRESS", label: "In Progress" },
   { key: "BLOCKED", label: "Blocked" },
-  { key: "DONE", label: "Done" }
+  { key: "DONE", label: "Done" },
 ];
+
+function renderDueLabel(timestamp: number) {
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  ).getTime();
+
+  const due = new Date(timestamp);
+  const dueDay = new Date(
+    due.getFullYear(),
+    due.getMonth(),
+    due.getDate()
+  ).getTime();
+
+  const labelDate = due.toLocaleDateString();
+
+  if (dueDay < todayStart) {
+    return <span className="text-red-600">Overdue • {labelDate}</span>;
+  } else if (dueDay === todayStart) {
+    return <span className="text-amber-600">Due today • {labelDate}</span>;
+  }
+
+  return <span className="text-slate-600">Due {labelDate}</span>;
+}
 
 export default function MyTasksPage() {
   const { user, loading: authLoading } = useAuth();
@@ -21,7 +47,6 @@ export default function MyTasksPage() {
     if (!user) return;
     setLoading(true);
 
-    // 🔥 Only this read for now
     const userTasks = await listTasksForUser(user.uid);
     setTasks(userTasks);
 
@@ -68,7 +93,7 @@ export default function MyTasksPage() {
     BACKLOG: [],
     IN_PROGRESS: [],
     BLOCKED: [],
-    DONE: []
+    DONE: [],
   };
   for (const t of tasks) {
     grouped[t.status].push(t);
@@ -104,19 +129,20 @@ export default function MyTasksPage() {
                     className="rounded-lg bg-white px-3 py-2 text-sm shadow-sm"
                   >
                     <p className="font-medium">{task.title}</p>
+
+                    {task.dueDate && (
+                      <p className="mt-1 text-xs">{renderDueLabel(task.dueDate)}</p>
+                    )}
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Priority: {task.priority}
+                    </p>
+
                     <p className="mt-1 text-xs text-slate-500">
                       Project: {task.projectId}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
                       Milestone: {task.milestoneId}
-                    </p>
-                    {task.dueDate && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        Due {new Date(task.dueDate).toLocaleDateString()}
-                      </p>
-                    )}
-                    <p className="mt-1 text-xs text-slate-500">
-                      Priority: {task.priority}
                     </p>
                   </div>
                 ))}

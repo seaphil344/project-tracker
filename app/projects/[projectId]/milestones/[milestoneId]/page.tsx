@@ -12,8 +12,34 @@ const STATUS_COLUMNS: { key: TaskStatus; label: string }[] = [
   { key: "BACKLOG", label: "Backlog" },
   { key: "IN_PROGRESS", label: "In Progress" },
   { key: "BLOCKED", label: "Blocked" },
-  { key: "DONE", label: "Done" }
+  { key: "DONE", label: "Done" },
 ];
+
+function renderDueLabel(timestamp: number) {
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  ).getTime();
+
+  const due = new Date(timestamp);
+  const dueDay = new Date(
+    due.getFullYear(),
+    due.getMonth(),
+    due.getDate()
+  ).getTime();
+
+  const labelDate = due.toLocaleDateString();
+
+  if (dueDay < todayStart) {
+    return <span className="text-red-600">Overdue • {labelDate}</span>;
+  } else if (dueDay === todayStart) {
+    return <span className="text-amber-600">Due today • {labelDate}</span>;
+  }
+
+  return <span className="text-slate-600">Due {labelDate}</span>;
+}
 
 export default function MilestonePage() {
   const params = useParams<{ projectId: string; milestoneId: string }>();
@@ -30,7 +56,7 @@ export default function MilestonePage() {
     setLoading(true);
     const [allMilestones, allTasks] = await Promise.all([
       listMilestones(projectId),
-      listTasksForProject(projectId)
+      listTasksForProject(projectId),
     ]);
 
     const m = allMilestones.find((mi) => mi.id === milestoneId) ?? null;
@@ -43,10 +69,9 @@ export default function MilestonePage() {
     void load();
   }, [projectId, milestoneId]);
 
-  // ✅ NEW: handler to change task status
   const handleTaskStatusChange = async (taskId: string, status: TaskStatus) => {
     await updateTaskStatus(taskId, status);
-    await load(); // refresh tasks
+    await load();
   };
 
   if (authLoading) {
@@ -74,7 +99,7 @@ export default function MilestonePage() {
     BACKLOG: [],
     IN_PROGRESS: [],
     BLOCKED: [],
-    DONE: []
+    DONE: [],
   };
   for (const t of tasks) {
     grouped[t.status].push(t);
@@ -98,11 +123,7 @@ export default function MilestonePage() {
           )}
         </div>
         <div className="w-full max-w-sm">
-          <TaskForm
-            projectId={projectId}
-            milestoneId={milestoneId}
-            onCreated={load}
-          />
+          <TaskForm projectId={projectId} milestoneId={milestoneId} onCreated={load} />
         </div>
       </header>
 
@@ -122,11 +143,15 @@ export default function MilestonePage() {
                   className="rounded-lg bg-white px-3 py-2 text-sm shadow-sm"
                 >
                   <p className="font-medium">{task.title}</p>
+
+                  {task.dueDate && (
+                    <p className="mt-1 text-xs">{renderDueLabel(task.dueDate)}</p>
+                  )}
+
                   <p className="mt-1 text-xs text-slate-500">
                     Priority: {task.priority}
                   </p>
 
-                  {/* ✅ NEW: status select */}
                   <select
                     className="mt-2 w-full rounded border px-2 py-1 text-xs"
                     value={task.status}
