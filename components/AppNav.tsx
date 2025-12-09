@@ -11,6 +11,11 @@ export default function AppNav() {
       <a href="/projects" className="hover:underline">
         Projects
       </a>
+      {user && (
+        <a href="/my-tasks" className="hover:underline">
+          My Tasks
+        </a>
+      )}
 
       {loading ? (
         <span className="text-xs text-slate-500">Checking auth…</span>

@@ -1,3 +1,4 @@
+// lib/tasks.ts
 import { db } from "./firebase";
 import {
   addDoc,
@@ -48,7 +49,16 @@ export async function listTasksForProject(projectId: string): Promise<TaskDoc[]>
   }));
 }
 
-// ✅ NEW: update task status
+// ✅ NEW: tasks assigned to a given user
+export async function listTasksForUser(userId: string): Promise<TaskDoc[]> {
+  const q = query(collection(db, TASKS), where("assigneeId", "==", userId));
+  const snap = await getDocs(q);
+  return snap.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...(docSnap.data() as Omit<TaskDoc, "id">)
+  }));
+}
+
 export async function updateTaskStatus(
   taskId: string,
   status: TaskStatus

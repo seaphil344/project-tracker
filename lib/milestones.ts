@@ -1,3 +1,4 @@
+// lib/milestones.ts
 import { db } from "./firebase";
 import {
   addDoc,
@@ -7,7 +8,8 @@ import {
   where,
   orderBy,
   doc,
-  updateDoc
+  updateDoc,
+  documentId
 } from "firebase/firestore";
 import type { MilestoneDoc, MilestoneStatus } from "./types";
 
@@ -48,7 +50,6 @@ export async function listMilestones(projectId: string): Promise<MilestoneDoc[]>
   }));
 }
 
-// ✅ NEW: update milestone status
 export async function updateMilestoneStatus(
   milestoneId: string,
   status: MilestoneStatus
@@ -58,4 +59,34 @@ export async function updateMilestoneStatus(
     status,
     updatedAt: Date.now()
   });
+}
+
+// ✅ NEW: used by /my-tasks to resolve milestone names
+export async function getMilestonesByIds(
+  ids: string[]
+): Promise<Record<string, MilestoneDoc>> {
+  if (ids.length === 0) return {};
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 10) {
+    chunks.push(ids.slice(i, i + 10));
+  }
+
+  const results: Record<string, MilestoneDoc> = {};
+
+  for (const chunk of chunks) {
+    const q = query(
+      collection(db, MILESTONES),
+      where(documentId(), "in", chunk)
+    );
+    const snap = await getDocs(q);
+    snap.forEach((docSnap) => {
+      results[docSnap.id] = {
+        id: docSnap.id,
+        ...(docSnap.data() as Omit<MilestoneDoc, "id">)
+      };
+    });
+  }
+
+  return results;
 }
