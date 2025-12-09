@@ -17,6 +17,33 @@ import {
 } from "@/lib/milestones";
 import { deleteTasksForMilestone } from "@/lib/tasks";
 
+// Helper: show milestone due date nicely
+function renderMilestoneDueLabel(timestamp: number) {
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  ).getTime();
+
+  const due = new Date(timestamp);
+  const dueDay = new Date(
+    due.getFullYear(),
+    due.getMonth(),
+    due.getDate()
+  ).getTime();
+
+  const labelDate = due.toLocaleDateString();
+
+  if (dueDay < todayStart) {
+    return <span className="text-red-600">Overdue • {labelDate}</span>;
+  } else if (dueDay === todayStart) {
+    return <span className="text-amber-600">Due today • {labelDate}</span>;
+  }
+
+  return <span className="text-slate-600">Due {labelDate}</span>;
+}
+
 export default function ProjectPage() {
   const params = useParams<{ projectId: string }>();
   const projectId = params.projectId;
@@ -144,6 +171,9 @@ export default function ProjectPage() {
             const done = tasks.filter(
               (t: TaskDoc) => t.status === "DONE"
             ).length;
+            const total = tasks.length;
+            const percent =
+              total > 0 ? Math.round((done / total) * 100) : 0;
 
             const isEditing = editingId === m.id;
 
@@ -212,8 +242,20 @@ export default function ProjectPage() {
                       (window.location.href = `/projects/${projectId}/milestones/${m.id}`)
                     }
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <h2 className="font-medium">{m.name}</h2>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="font-medium">{m.name}</h2>
+                        {m.description && (
+                          <p className="mt-1 text-sm text-slate-600">
+                            {m.description}
+                          </p>
+                        )}
+                        {m.dueDate && (
+                          <p className="mt-2 text-xs">
+                            {renderMilestoneDueLabel(m.dueDate)}
+                          </p>
+                        )}
+                      </div>
                       <select
                         className="rounded border px-2 py-1 text-xs"
                         value={m.status}
@@ -230,14 +272,23 @@ export default function ProjectPage() {
                         <option value="COMPLETED">Completed</option>
                       </select>
                     </div>
-                    {m.description && (
-                      <p className="mt-1 text-sm text-slate-600">
-                        {m.description}
+
+                    {/* Task stats + progress bar */}
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs text-slate-500">
+                        {total === 0
+                          ? "No tasks yet"
+                          : `${done}/${total} tasks complete (${percent}%)`}
                       </p>
-                    )}
-                    <p className="mt-3 text-xs text-slate-500">
-                      {done}/{tasks.length} tasks complete
-                    </p>
+                      {total > 0 && (
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-slate-900"
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex gap-2 md:w-40 md:flex-col">

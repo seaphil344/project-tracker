@@ -1,40 +1,72 @@
+// hooks/useProjectMilestones.ts
 "use client";
 
 import { useEffect, useState } from "react";
-import { listMilestones } from "@/lib/milestones";
-import { listTasksForProject } from "@/lib/tasks";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+} from "firebase/firestore";
 import type { MilestoneDoc, TaskDoc } from "@/lib/types";
 
-export function useProjectMilestones(projectId: string, refreshKey = 0) {
+type TasksByMilestone = Record<string, TaskDoc[]>;
+
+// refreshKey is kept for backwards compatibility but not used anymore
+export function useProjectMilestones(projectId: string, _refreshKey?: number) {
   const [milestones, setMilestones] = useState<MilestoneDoc[]>([]);
   const [tasksByMilestone, setTasksByMilestone] =
-    useState<Record<string, TaskDoc[]>>({});
+    useState<TasksByMilestone>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!projectId) return;
 
-    const load = async () => {
-      setLoading(true);
+    setLoading(true);
 
-      const [miles, tasks] = await Promise.all([
-        listMilestones(projectId),
-        listTasksForProject(projectId),
-      ]);
+    // Listen for milestone changes for this project
+    const milestonesQuery = query(
+      collection(db, "milestones"),
+      where("projectId", "==", projectId),
+      orderBy("orderIndex", "asc")
+    );
 
-      const grouped: Record<string, TaskDoc[]> = {};
-      for (const t of tasks) {
+    const tasksQuery = query(
+      collection(db, "tasks"),
+      where("projectId", "==", projectId)
+    );
+
+    const unsubMilestones = onSnapshot(milestonesQuery, (snap) => {
+      const ms: MilestoneDoc[] = snap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...(docSnap.data() as Omit<MilestoneDoc, "id">),
+      }));
+      setMilestones(ms);
+    });
+
+    const unsubTasks = onSnapshot(tasksQuery, (snap) => {
+      const allTasks: TaskDoc[] = snap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...(docSnap.data() as Omit<TaskDoc, "id">),
+      }));
+
+      const grouped: TasksByMilestone = {};
+      for (const t of allTasks) {
         if (!grouped[t.milestoneId]) grouped[t.milestoneId] = [];
         grouped[t.milestoneId].push(t);
       }
 
-      setMilestones(miles);
       setTasksByMilestone(grouped);
       setLoading(false);
-    };
+    });
 
-    void load();
-  }, [projectId, refreshKey]);
+    return () => {
+      unsubMilestones();
+      unsubTasks();
+    };
+  }, [projectId]);
 
   return { milestones, tasksByMilestone, loading };
 }

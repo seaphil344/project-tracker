@@ -2,9 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { listTasksForUser, deleteTask } from "@/lib/tasks";
+import { deleteTask } from "@/lib/tasks";
 import { getProjectsByIds } from "@/lib/projects";
 import { getMilestonesByIds } from "@/lib/milestones";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
 import type {
   TaskDoc,
   TaskStatus,
@@ -53,59 +60,73 @@ export default function MyTasksPage() {
     useState<Record<string, MilestoneDoc>>({});
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    if (!user) return;
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      setTasks([]);
+      setProjects({});
+      setMilestones({});
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
-    try {
-      const userTasks = await listTasksForUser(user.uid);
-      setTasks(userTasks);
+    const q = query(
+      collection(db, "tasks"),
+      where("assigneeId", "==", user.uid)
+    );
 
-      const projectIds = Array.from(
-        new Set(userTasks.map((t) => t.projectId).filter(Boolean))
-      );
-      const milestoneIds = Array.from(
-        new Set(userTasks.map((t) => t.milestoneId).filter(Boolean))
-      );
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const newTasks: TaskDoc[] = snap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...(docSnap.data() as Omit<TaskDoc, "id">),
+      }));
 
-      let projectMap: Record<string, ProjectDoc> = {};
-      let milestoneMap: Record<string, MilestoneDoc> = {};
+      setTasks(newTasks);
 
-      // These are wrapped in try/catch so a rules issue on one doc
-      // doesn't break the whole My Tasks page.
-      try {
-        projectMap =
-          projectIds.length > 0 ? await getProjectsByIds(projectIds) : {};
-      } catch (e) {
-        console.warn("Could not load some projects:", e);
-      }
+      // Resolve project & milestone names whenever the tasks change
+      (async () => {
+        const projectIds = Array.from(
+          new Set(newTasks.map((t) => t.projectId).filter(Boolean))
+        );
+        const milestoneIds = Array.from(
+          new Set(newTasks.map((t) => t.milestoneId).filter(Boolean))
+        );
 
-      try {
-        milestoneMap =
-          milestoneIds.length > 0
-            ? await getMilestonesByIds(milestoneIds)
-            : {};
-      } catch (e) {
-        console.warn("Could not load some milestones:", e);
-      }
+        let projectMap: Record<string, ProjectDoc> = {};
+        let milestoneMap: Record<string, MilestoneDoc> = {};
 
-      setProjects(projectMap);
-      setMilestones(milestoneMap);
-    } finally {
-      setLoading(false);
-    }
-  };
+        try {
+          projectMap =
+            projectIds.length > 0 ? await getProjectsByIds(projectIds) : {};
+        } catch (e) {
+          console.warn("Could not load some projects:", e);
+        }
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      void load();
-    }
-  }, [authLoading, user]);
+        try {
+          milestoneMap =
+            milestoneIds.length > 0
+              ? await getMilestonesByIds(milestoneIds)
+              : {};
+        } catch (e) {
+          console.warn("Could not load some milestones:", e);
+        }
+
+        setProjects(projectMap);
+        setMilestones(milestoneMap);
+        setLoading(false);
+      })();
+    });
+
+    return () => unsubscribe();
+  }, [authLoading, user?.uid]);
 
   const handleDeleteTask = async (taskId: string) => {
     if (!confirm("Delete this task? This cannot be undone.")) return;
     await deleteTask(taskId);
-    await load();
+    // No manual reload needed; onSnapshot will fire with updated data
   };
 
   if (authLoading) {
@@ -185,7 +206,6 @@ export default function MyTasksPage() {
                         <div className="flex-1">
                           <p className="font-medium">{task.title}</p>
 
-                          {/* Project + milestone names */}
                           <p className="mt-1 text-xs text-slate-600">
                             {project ? project.name : "Project"} •{" "}
                             {milestone ? milestone.name : "Milestone"}
