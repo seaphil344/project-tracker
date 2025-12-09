@@ -9,7 +9,7 @@ import {
   orderBy,
   doc,
   updateDoc,
-  documentId
+  deleteDoc,
 } from "firebase/firestore";
 import type { MilestoneDoc, MilestoneStatus } from "./types";
 
@@ -31,7 +31,7 @@ export async function createMilestone(
     orderIndex,
     dueDate: input.dueDate ?? null,
     createdAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
   });
 
   return docRef.id;
@@ -46,7 +46,7 @@ export async function listMilestones(projectId: string): Promise<MilestoneDoc[]>
   const snap = await getDocs(q);
   return snap.docs.map((docSnap) => ({
     id: docSnap.id,
-    ...(docSnap.data() as Omit<MilestoneDoc, "id">)
+    ...(docSnap.data() as Omit<MilestoneDoc, "id">),
   }));
 }
 
@@ -57,36 +57,26 @@ export async function updateMilestoneStatus(
   const ref = doc(db, MILESTONES, milestoneId);
   await updateDoc(ref, {
     status,
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
   });
 }
 
-// ✅ NEW: used by /my-tasks to resolve milestone names
-export async function getMilestonesByIds(
-  ids: string[]
-): Promise<Record<string, MilestoneDoc>> {
-  if (ids.length === 0) return {};
+// ✅ NEW: generic milestone update
+export async function updateMilestone(
+  milestoneId: string,
+  updates: Partial<
+    Pick<MilestoneDoc, "name" | "description" | "status" | "dueDate">
+  >
+): Promise<void> {
+  const ref = doc(db, MILESTONES, milestoneId);
+  await updateDoc(ref, {
+    ...updates,
+    updatedAt: Date.now(),
+  });
+}
 
-  const chunks: string[][] = [];
-  for (let i = 0; i < ids.length; i += 10) {
-    chunks.push(ids.slice(i, i + 10));
-  }
-
-  const results: Record<string, MilestoneDoc> = {};
-
-  for (const chunk of chunks) {
-    const q = query(
-      collection(db, MILESTONES),
-      where(documentId(), "in", chunk)
-    );
-    const snap = await getDocs(q);
-    snap.forEach((docSnap) => {
-      results[docSnap.id] = {
-        id: docSnap.id,
-        ...(docSnap.data() as Omit<MilestoneDoc, "id">)
-      };
-    });
-  }
-
-  return results;
+// ✅ NEW: delete a milestone (tasks get deleted in UI via deleteTasksForMilestone)
+export async function deleteMilestone(milestoneId: string): Promise<void> {
+  const ref = doc(db, MILESTONES, milestoneId);
+  await deleteDoc(ref);
 }
