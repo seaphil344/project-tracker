@@ -5,9 +5,11 @@ import {
   getDocs,
   query,
   where,
-  orderBy
+  orderBy,
+  doc,
+  updateDoc
 } from "firebase/firestore";
-import type { MilestoneDoc } from "./types";
+import type { MilestoneDoc, MilestoneStatus } from "./types";
 
 const MILESTONES = "milestones";
 
@@ -40,8 +42,20 @@ export async function listMilestones(projectId: string): Promise<MilestoneDoc[]>
     orderBy("orderIndex", "asc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((doc) => ({
-    id: doc.id,
-    ...(doc.data() as Omit<MilestoneDoc, "id">)
+  return snap.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...(docSnap.data() as Omit<MilestoneDoc, "id">)
   }));
+}
+
+// ✅ NEW: update milestone status
+export async function updateMilestoneStatus(
+  milestoneId: string,
+  status: MilestoneStatus
+): Promise<void> {
+  const ref = doc(db, MILESTONES, milestoneId);
+  await updateDoc(ref, {
+    status,
+    updatedAt: Date.now()
+  });
 }

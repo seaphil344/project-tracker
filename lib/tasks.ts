@@ -4,9 +4,11 @@ import {
   collection,
   getDocs,
   query,
-  where
+  where,
+  doc,
+  updateDoc
 } from "firebase/firestore";
-import type { TaskDoc } from "./types";
+import type { TaskDoc, TaskStatus } from "./types";
 
 const TASKS = "tasks";
 
@@ -40,8 +42,20 @@ export async function createTask(
 export async function listTasksForProject(projectId: string): Promise<TaskDoc[]> {
   const q = query(collection(db, TASKS), where("projectId", "==", projectId));
   const snap = await getDocs(q);
-  return snap.docs.map((doc) => ({
-    id: doc.id,
-    ...(doc.data() as Omit<TaskDoc, "id">)
+  return snap.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...(docSnap.data() as Omit<TaskDoc, "id">)
   }));
+}
+
+// ✅ NEW: update task status
+export async function updateTaskStatus(
+  taskId: string,
+  status: TaskStatus
+): Promise<void> {
+  const ref = doc(db, TASKS, taskId);
+  await updateDoc(ref, {
+    status,
+    updatedAt: Date.now()
+  });
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { listTasksForProject } from "@/lib/tasks";
+import { listTasksForProject, updateTaskStatus } from "@/lib/tasks";
 import { listMilestones } from "@/lib/milestones";
 import type { TaskDoc, MilestoneDoc, TaskStatus } from "@/lib/types";
 import TaskForm from "@/components/TaskForm";
@@ -33,8 +33,7 @@ export default function MilestonePage() {
       listTasksForProject(projectId)
     ]);
 
-    const m =
-      allMilestones.find((mi) => mi.id === milestoneId) ?? null;
+    const m = allMilestones.find((mi) => mi.id === milestoneId) ?? null;
     setMilestone(m);
     setTasks(allTasks.filter((t) => t.milestoneId === milestoneId));
     setLoading(false);
@@ -43,6 +42,12 @@ export default function MilestonePage() {
   useEffect(() => {
     void load();
   }, [projectId, milestoneId]);
+
+  // ✅ NEW: handler to change task status
+  const handleTaskStatusChange = async (taskId: string, status: TaskStatus) => {
+    await updateTaskStatus(taskId, status);
+    await load(); // refresh tasks
+  };
 
   if (authLoading) {
     return <p className="text-sm text-slate-600">Checking auth…</p>;
@@ -89,9 +94,7 @@ export default function MilestonePage() {
         <div>
           <h1 className="text-2xl font-semibold">{milestone.name}</h1>
           {milestone.description && (
-            <p className="text-sm text-slate-600">
-              {milestone.description}
-            </p>
+            <p className="text-sm text-slate-600">{milestone.description}</p>
           )}
         </div>
         <div className="w-full max-w-sm">
@@ -122,6 +125,24 @@ export default function MilestonePage() {
                   <p className="mt-1 text-xs text-slate-500">
                     Priority: {task.priority}
                   </p>
+
+                  {/* ✅ NEW: status select */}
+                  <select
+                    className="mt-2 w-full rounded border px-2 py-1 text-xs"
+                    value={task.status}
+                    onChange={(e) =>
+                      handleTaskStatusChange(
+                        task.id,
+                        e.target.value as TaskStatus
+                      )
+                    }
+                  >
+                    {STATUS_COLUMNS.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               ))}
               {grouped[col.key].length === 0 && (
