@@ -38,17 +38,19 @@ export async function createMilestone(
   return docRef.id;
 }
 
-export async function listMilestones(projectId: string): Promise<MilestoneDoc[]> {
-  const q = query(
-    collection(db, MILESTONES),
-    where("projectId", "==", projectId),
-    orderBy("orderIndex", "asc")
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...(docSnap.data() as Omit<MilestoneDoc, "id">),
-  }));
+export async function listMilestones(projectId?: string): Promise<MilestoneDoc[]> {
+    if (!projectId) return []; // ✅ guard
+  
+    const q = query(
+      collection(db, MILESTONES),
+      where("projectId", "==", projectId),
+      orderBy("orderIndex", "asc")
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...(docSnap.data() as Omit<MilestoneDoc, "id">),
+    }));
 }
 
 export async function updateMilestoneStatus(

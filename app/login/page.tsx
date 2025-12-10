@@ -1,3 +1,4 @@
+// app/login/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -22,7 +23,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Redirect in an effect, not during render
+  // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
       router.push("/projects");
@@ -31,9 +32,9 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     if (!email.trim() || !password.trim()) return;
 
+    setError(null);
     setSubmitting(true);
     try {
       if (mode === "login") {
@@ -45,7 +46,10 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error(err);
       setError(
-        err?.message || "Something went wrong. Please check your details."
+        err?.message ||
+          (mode === "login"
+            ? "Login failed. Please check your details."
+            : "Sign up failed. Please try again.")
       );
     } finally {
       setSubmitting(false);
@@ -67,23 +71,24 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-md">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-md ring-1 ring-slate-200">
+        {/* Heading */}
         <h1 className="text-2xl font-semibold text-slate-900">
           {mode === "login" ? "Log in" : "Sign up"}
         </h1>
         <p className="mt-1 text-sm text-slate-600">
           {mode === "login"
             ? "Log in to manage your projects, milestones, and tasks."
-            : "Create an account with your email to start tracking projects."}
+            : "Create an account to start tracking your work."}
         </p>
 
-        {/* Toggle */}
+        {/* Mode toggle */}
         <div className="mt-4 flex rounded-lg bg-slate-100 p-1 text-xs">
           <button
             type="button"
             onClick={() => setMode("login")}
-            className={`flex-1 rounded-md px-3 py-2 ${
+            className={`flex-1 rounded-md px-3 py-2 transition ${
               mode === "login"
                 ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-600"
@@ -94,7 +99,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => setMode("signup")}
-            className={`flex-1 rounded-md px-3 py-2 ${
+            className={`flex-1 rounded-md px-3 py-2 transition ${
               mode === "signup"
                 ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-600"
@@ -113,10 +118,11 @@ export default function LoginPage() {
             <input
               type="email"
               autoComplete="email"
-              className="w-full rounded border px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={submitting}
+              placeholder="you@example.com"
             />
           </div>
 
@@ -126,11 +132,14 @@ export default function LoginPage() {
             </label>
             <input
               type="password"
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              className="w-full rounded border px-3 py-2 text-sm"
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={submitting}
+              placeholder="••••••••"
             />
           </div>
 
@@ -143,12 +152,12 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={submitting || !email.trim() || !password.trim()}
-            className="mt-1 w-full rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="mt-1 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {submitting
               ? mode === "login"
-                ? "Logging in..."
-                : "Creating account..."
+                ? "Logging in…"
+                : "Creating account…"
               : mode === "login"
               ? "Log in with email"
               : "Sign up with email"}
@@ -158,16 +167,18 @@ export default function LoginPage() {
         {/* Divider */}
         <div className="my-4 flex items-center gap-2">
           <div className="h-px flex-1 bg-slate-200" />
-          <span className="text-xs uppercase text-slate-400">or</span>
+          <span className="text-xs uppercase text-slate-400">
+            or
+          </span>
           <div className="h-px flex-1 bg-slate-200" />
         </div>
 
-        {/* Google button */}
+        {/* Google sign in */}
         <button
           type="button"
           onClick={handleGoogle}
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded border px-4 py-2 text-sm font-medium text-slate-800 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50"
         >
           <span>Continue with Google</span>
         </button>

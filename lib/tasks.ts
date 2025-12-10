@@ -41,24 +41,32 @@ export async function createTask(
   return docRef.id;
 }
 
-export async function listTasksForProject(
-  projectId: string
-): Promise<TaskDoc[]> {
-  const q = query(collection(db, TASKS), where("projectId", "==", projectId));
-  const snap = await getDocs(q);
-  return snap.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...(docSnap.data() as Omit<TaskDoc, "id">),
-  }));
+export async function listTasksForProject(projectId?: string): Promise<TaskDoc[]> {
+    if (!projectId) return []; // ✅ guard
+  
+    const q = query(
+      collection(db, TASKS),
+      where("projectId", "==", projectId)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...(docSnap.data() as Omit<TaskDoc, "id">),
+    }));
 }
-
-export async function listTasksForUser(userId: string): Promise<TaskDoc[]> {
-  const q = query(collection(db, TASKS), where("assigneeId", "==", userId));
-  const snap = await getDocs(q);
-  return snap.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...(docSnap.data() as Omit<TaskDoc, "id">),
-  }));
+  
+export async function listTasksForUser(userId?: string): Promise<TaskDoc[]> {
+    if (!userId) return []; // ✅ guard
+  
+    const q = query(
+      collection(db, TASKS),
+      where("assigneeId", "==", userId)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...(docSnap.data() as Omit<TaskDoc, "id">),
+    }));
 }
 
 export async function updateTaskStatus(

@@ -1,10 +1,16 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------
+   Root theme variables
+------------------------------------------------------------------ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Slightly soft light background instead of pure white */
+  --background: #f3f4f6; /* tailwind slate-100-ish */
+  --foreground: #111827; /* tailwind slate-900 */
 }
 
+/* Hook into Tailwind v4 theme inline */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -12,15 +18,146 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* 🛑 We intentionally DO NOT override for dark mode here,
+   since that was giving you the full black background before.
+   If you want OS-level dark mode back later, we can reintroduce it.
+*/
+
+/*
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #020617; 
+    --foreground: #e5e7eb;
   }
 }
+*/
+
+/* ------------------------------------------------------------------
+   Base body styles
+------------------------------------------------------------------ */
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------
+   Typography tweaks (lightweight, Tailwind-friendly)
+------------------------------------------------------------------ */
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+/* Slightly softer default text for body content */
+p,
+span,
+label {
+  color: #4b5563; /* slate-600 */
+}
+
+/* ------------------------------------------------------------------
+   Links
+------------------------------------------------------------------ */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #111827; /* slate-900 */
+}
+
+/* ------------------------------------------------------------------
+   Forms – key fix: inputs readable on white cards
+------------------------------------------------------------------ */
+
+input,
+textarea,
+select {
+  /* Don't touch padding/radius much so Tailwind classes still work.
+     Just fix color & base background. */
+  color: #111827;            /* dark text */
+  background-color: #ffffff; /* white background */
+}
+
+/* Placeholder color */
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af; /* slate-400 */
+}
+
+/* Focus state – gentle ring that plays nice with Tailwind */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: #4f46e5; /* indigo-600 if there is a border */
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.5);
+}
+
+/* Ensure disabled elements don't look broken */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background-color: #e5e7eb; /* slate-200 */
+  color: #6b7280;            /* slate-500 */
+}
+
+/* ------------------------------------------------------------------
+   Buttons – light touch, Tailwind still controls most styles
+------------------------------------------------------------------ */
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ------------------------------------------------------------------
+   Utility-ish global classes (optional helpers)
+------------------------------------------------------------------ */
+
+/* A generic card class you can opt into:
+   <div className="card"> if you want a consistent card style */
+.card {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb; /* slate-200 */
+  border-radius: 0.75rem;    /* rounded-xl */
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+/* ------------------------------------------------------------------
+   Scrollbar – subtle modern style (Chrome / Edge / Safari)
+------------------------------------------------------------------ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #e5e7eb; /* slate-200 */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #9ca3af; /* slate-400 */
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280; /* slate-500 */
 }

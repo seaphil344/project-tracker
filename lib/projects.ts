@@ -35,17 +35,18 @@ export async function createProject(input: {
 }
 
 // List for owner
-export async function listProjects(ownerId: string): Promise<ProjectDoc[]> {
-  const q = query(
-    collection(db, PROJECTS),
-    where("ownerId", "==", ownerId),
-    orderBy("createdAt", "desc")
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...(docSnap.data() as Omit<ProjectDoc, "id">),
-  }));
+export async function listProjects(ownerId?: string): Promise<ProjectDoc[]> {
+    if (!ownerId) return []; // ✅ never hit Firestore with undefined
+  
+    const q = query(
+      collection(db, PROJECTS),
+      where("ownerId", "==", ownerId)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...(docSnap.data() as Omit<ProjectDoc, "id">),
+    }));
 }
 
 // Optional: used by My Tasks (if you ever re-enable it)

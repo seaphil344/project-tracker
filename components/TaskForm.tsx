@@ -2,102 +2,105 @@
 
 import { useState } from "react";
 import { createTask } from "@/lib/tasks";
-import type { TaskPriority } from "@/lib/types";
-import { useAuth } from "@/contexts/AuthContext";
 
-type Props = {
+export default function TaskForm({
+  projectId,
+  milestoneId,
+  onCreated,
+}: {
   projectId: string;
   milestoneId: string;
   onCreated?: () => void;
-};
-
-const PRIORITIES: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-
-export default function TaskForm({ projectId, milestoneId, onCreated }: Props) {
-  const { user } = useAuth();
-
+}) {
   const [title, setTitle] = useState("");
-  const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
-  const [dueDateInput, setDueDateInput] = useState(""); // "YYYY-MM-DD"
-  const [submitting, setSubmitting] = useState(false);
+  const [description, setDescription] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState("Medium");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    if (!user) return; // Must be logged in
 
-    setSubmitting(true);
+    setLoading(true);
 
-    try {
-      let dueDate: number | null = null;
-      if (dueDateInput) {
-        // Store as timestamp at local midnight of that day
-        const date = new Date(dueDateInput + "T00:00:00");
-        dueDate = date.getTime();
-      }
+    await createTask({
+      projectId,
+      milestoneId,
+      title: title.trim(),
+      description: description.trim(),
+      dueDate: dueDate ? new Date(dueDate).getTime() : null,
+      priority,
+      status: "BACKLOG",
+    });
 
-      await createTask(projectId, milestoneId, {
-        title: title.trim(),
-        priority,
-        description: "",
-        dueDate,
-        assigneeId: user.uid,
-      });
+    setLoading(false);
+    setTitle("");
+    setDescription("");
+    setDueDate("");
+    setPriority("Medium");
 
-      setTitle("");
-      setPriority("MEDIUM");
-      setDueDateInput("");
-      onCreated?.();
-    } catch (err) {
-      console.error("Error creating task:", err);
-    }
-
-    setSubmitting(false);
+    onCreated?.();
   };
 
   return (
     <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-2 rounded-lg border bg-white p-3 shadow-sm"
+      onSubmit={handleCreate}
+      className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3"
     >
+      <h3 className="text-sm font-semibold text-slate-900">Add Task</h3>
+
+      {/* Title */}
       <input
-        type="text"
-        placeholder="New task title"
-        className="w-full rounded border px-3 py-2 text-sm"
+        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+        placeholder="Task title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        disabled={submitting}
       />
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <select
-          className="w-full rounded border px-2 py-2 text-sm"
-          value={priority}
-          onChange={(e) => setPriority(e.target.value as TaskPriority)}
-          disabled={submitting}
-        >
-          {PRIORITIES.map((p) => (
-            <option key={p} value={p}>
-              {p.charAt(0) + p.slice(1).toLowerCase()}
-            </option>
-          ))}
-        </select>
+      {/* Description */}
+      <textarea
+        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+        placeholder="Task description (optional)"
+        rows={2}
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+      />
 
+      {/* Row: due date + priority */}
+      <div className="flex gap-3">
         <input
           type="date"
-          className="w-full rounded border px-2 py-2 text-sm"
-          value={dueDateInput}
-          onChange={(e) => setDueDateInput(e.target.value)}
-          disabled={submitting}
+          className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
         />
+
+        <select
+          className="w-32 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+        >
+          <option>Low</option>
+          <option>Medium</option>
+          <option>High</option>
+        </select>
       </div>
 
+      {/* PRIMARY BUTTON — matches all other buttons across the app */}
       <button
         type="submit"
-        disabled={submitting || !user}
-        className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+        disabled={!title.trim() || loading}
+        className="
+          w-full rounded-lg 
+          bg-indigo-600 
+          px-4 py-2 
+          text-sm font-medium text-white 
+          hover:bg-indigo-700 
+          disabled:opacity-50
+        "
       >
-        {submitting ? "Creating…" : "Add Task"}
+        {loading ? "Adding…" : "Add Task"}
       </button>
     </form>
   );
