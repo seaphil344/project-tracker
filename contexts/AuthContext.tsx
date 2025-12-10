@@ -2,24 +2,29 @@
 "use client";
 
 import {
-  ReactNode,
   createContext,
   useContext,
   useEffect,
-  useState
+  useState,
+  ReactNode,
 } from "react";
 import {
   onAuthStateChanged,
-  signInWithPopup,
   signOut,
-  User
+  GoogleAuthProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  User,
 } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  signupWithEmail: (email: string, password: string) => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -34,11 +39,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
       setLoading(false);
     });
+
     return () => unsub();
   }, []);
 
-  const signInWithGoogle = async () => {
-    await signInWithPopup(auth, googleProvider);
+  const loginWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  };
+
+  const signupWithEmail = async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      // You could also create a user doc in /users here if you want.
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithEmail = async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = async () => {
@@ -48,11 +74,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user,
     loading,
-    signInWithGoogle,
-    logout
+    loginWithGoogle,
+    signupWithEmail,
+    loginWithEmail,
+    logout,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {/* while loading, let children render but they can check loading */}
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

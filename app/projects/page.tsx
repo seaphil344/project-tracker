@@ -11,9 +11,51 @@ import {
 } from "@/lib/projects";
 import {
   deleteTasksForProject,
-  deleteTasksForMilestone, // ok if unused
 } from "@/lib/tasks";
-import { deleteMilestonesForProject } from "@/lib/milestones";
+import {
+  deleteMilestonesForProject,
+} from "@/lib/milestones";
+import { db } from "@/lib/firebase";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
+
+type ProjectSummary = {
+  projectId: string;
+  milestoneCount: number;
+  taskCount: number;
+  doneTaskCount: number;
+  nextDue: number | null; // earliest milestone.dueDate
+};
+
+function renderDueLabel(timestamp: number) {
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  ).getTime();
+
+  const due = new Date(timestamp);
+  const dueDay = new Date(
+    due.getFullYear(),
+    due.getMonth(),
+    due.getDate()
+  ).getTime();
+
+  const labelDate = due.toLocaleDateString();
+
+  if (dueDay < todayStart) {
+    return <span className="text-red-600">Next due: Overdue • {labelDate}</span>;
+  } else if (dueDay === todayStart) {
+    return <span className="text-amber-600">Next due: Today • {labelDate}</span>;
+  }
+
+  return <span className="text-slate-600">Next due: {labelDate}</span>;
+}
 
 export default function ProjectsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -30,6 +72,11 @@ export default function ProjectsPage() {
   const [editStatus, setEditStatus] =
     useState<ProjectDoc["status"]>("ACTIVE");
 
+  // summaries
+  const [summaries, setSummaries] = useState<
+    Record<string, ProjectSummary>
+  >({});
+
   const load = async () => {
     if (!user) return;
     setLoading(true);
@@ -38,11 +85,71 @@ export default function ProjectsPage() {
     setLoading(false);
   };
 
+  // load projects
   useEffect(() => {
     if (!authLoading && user) {
       void load();
     }
   }, [authLoading, user]);
+
+  // load summaries for each project (milestones, tasks, next due date)
+  useEffect(() => {
+    const fetchSummaries = async () => {
+      if (!projects.length) {
+        setSummaries({});
+        return;
+      }
+
+      const result: Record<string, ProjectSummary> = {};
+
+      for (const p of projects) {
+        // milestones for this project
+        const milestonesQ = query(
+          collection(db, "milestones"),
+          where("projectId", "==", p.id)
+        );
+        const milestonesSnap = await getDocs(milestonesQ);
+        const milestoneDocs = milestonesSnap.docs.map((d) => d.data() as any);
+
+        const milestoneCount = milestoneDocs.length;
+
+        // compute earliest due date (if any milestone has dueDate)
+        let nextDue: number | null = null;
+        for (const m of milestoneDocs) {
+          if (m.dueDate) {
+            if (nextDue === null || m.dueDate < nextDue) {
+              nextDue = m.dueDate;
+            }
+          }
+        }
+
+        // tasks for this project
+        const tasksQ = query(
+          collection(db, "tasks"),
+          where("projectId", "==", p.id)
+        );
+        const tasksSnap = await getDocs(tasksQ);
+        const taskDocs = tasksSnap.docs.map((d) => d.data() as any);
+
+        const taskCount = taskDocs.length;
+        const doneTaskCount = taskDocs.filter(
+          (t) => t.status === "DONE"
+        ).length;
+
+        result[p.id] = {
+          projectId: p.id,
+          milestoneCount,
+          taskCount,
+          doneTaskCount,
+          nextDue,
+        };
+      }
+
+      setSummaries(result);
+    };
+
+    void fetchSummaries();
+  }, [projects]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +235,7 @@ export default function ProjectsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Projects</h1>
           <p className="text-sm text-slate-600">
-            Track work across projects, milestones and tasks.
+            Track work across projects, milestones, and tasks.
           </p>
         </div>
         <form
@@ -169,6 +276,14 @@ export default function ProjectsPage() {
         <div className="grid gap-4 md:grid-cols-2">
           {projects.map((p) => {
             const isEditing = editingId === p.id;
+            const summary = summaries[p.id];
+
+            const percent =
+              summary && summary.taskCount > 0
+                ? Math.round(
+                    (summary.doneTaskCount / summary.taskCount) * 100
+                  )
+                : 0;
 
             if (isEditing) {
               return (
@@ -237,12 +352,48 @@ export default function ProjectsPage() {
                       (window.location.href = `/projects/${p.id}`)
                     }
                   >
-                    <div>
+                    <div className="flex-1">
                       <h2 className="font-medium">{p.name}</h2>
                       {p.description && (
                         <p className="mt-1 text-sm text-slate-600">
                           {p.description}
                         </p>
+                      )}
+
+                      {/* Counts + next due */}
+                      <div className="mt-3 space-y-1 text-xs text-slate-600">
+                        {summary ? (
+                          <>
+                            <p>
+                              {summary.milestoneCount} milestone
+                              {summary.milestoneCount === 1 ? "" : "s"}
+                              {" • "}
+                              {summary.taskCount} task
+                              {summary.taskCount === 1 ? "" : "s"}
+                            </p>
+                            {summary.taskCount > 0 && (
+                              <p>
+                                {summary.doneTaskCount}/
+                                {summary.taskCount} tasks complete (
+                                {percent}%)
+                              </p>
+                            )}
+                            {summary.nextDue && (
+                              <p>{renderDueLabel(summary.nextDue)}</p>
+                            )}
+                          </>
+                        ) : (
+                          <p>No summary yet</p>
+                        )}
+                      </div>
+
+                      {summary && summary.taskCount > 0 && (
+                        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-slate-900"
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
                       )}
                     </div>
                     <span className="rounded-full border px-2 py-1 text-xs">
